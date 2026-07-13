@@ -1,0 +1,35 @@
+# boil-the-ocean — project notes for Claude Code
+
+Autonomous multi-sprint execution harness for coding agents. Read `README.md` for the
+product story; `docs/ARCHITECTURE.md` before touching `scripts/`; the worker protocol
+is `skills/boil-ocean/SKILL.md` (protocol changes require a pressure-scenario re-test —
+see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero tokens).
+
+## Current state (2026-07-13)
+
+- v1.0.0 shipped: https://github.com/rajkaria/boil-the-ocean — tag + GitHub release
+  published, CI green on macOS + Ubuntu, 54/54 tests.
+- Installed on this machine: `ocean` / `ocean-daemon` at `~/.local/bin` (symlinks to
+  this clone); `ocean-daemon doctor` passes clean.
+- Born in burn-rate (branch `claude/boil-ocean-skill-baa5ea`), fully extracted — no
+  references remain in that repo's files.
+
+## Key decisions
+
+- **SKILL.md doubles as the agent-agnostic protocol** — workers on any CLI are told
+  "read this file and follow it"; multi-agent support needed zero behavioral porting.
+- **Fresh worker per iteration, never `--resume`** — state lives in `.ocean/`,
+  mutated only via `ocean.sh` atomic writes; checkpoint notes are the inter-worker contract.
+- **Deliberate daemon exits are exit-code 0** so launchd/systemd KeepAlive respawns
+  crashes only, never complete/blocked/stopped runs.
+- **Unified safe/standard/yolo permissions** mapped per agent (Gemini's standard ==
+  yolo — its CLI has only two approval levels; documented honestly).
+- Name kept **"boil the ocean"** (Manthan / Samudra Manthan was runner-up).
+
+## Next steps
+
+1. Dogfood a real run: `examples/todo-api-spec.md` in a scratch repo, `OCEAN_AGENT=claude`.
+2. burn-rate README cross-link section (spend-less / spend-to-finish siblings).
+3. Claude Code plugin marketplace listing.
+4. First-class adapters for aider / opencode / cursor-agent (recipe: docs/agents/CUSTOM.md § adding a first-class adapter).
+5. Windows/PowerShell support (open contribution).
