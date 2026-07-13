@@ -7,8 +7,10 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Current state (2026-07-13)
 
-- v1.2.0 staged on branch `claude/optimistic-dijkstra-ca3530` (not yet merged): one-click
-  plugin install. Added `.claude-plugin/marketplace.json` so the repo is its own
+- v1.2.0 committed + pushed to branch `claude/optimistic-dijkstra-ca3530` (NOT yet merged
+  to main — marketplace goes live only once `.claude-plugin/marketplace.json` is on the
+  default branch): one-click plugin install. Added `.claude-plugin/marketplace.json` so
+  the repo is its own
   one-plugin marketplace — `/plugin marketplace add rajkaria/boil-the-ocean` +
   `/plugin install boil-the-ocean@boil-the-ocean` from inside Claude Code, no shell/clone;
   same manifest installs on Antigravity / Factory Droid / Copilot CLI. Plugin entry carries
