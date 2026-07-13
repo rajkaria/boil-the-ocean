@@ -7,16 +7,18 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Current state (2026-07-13)
 
-- v1.2.0 committed + pushed to branch `claude/optimistic-dijkstra-ca3530` (NOT yet merged
-  to main — marketplace goes live only once `.claude-plugin/marketplace.json` is on the
-  default branch): one-click plugin install. Added `.claude-plugin/marketplace.json` so
-  the repo is its own
-  one-plugin marketplace — `/plugin marketplace add rajkaria/boil-the-ocean` +
+- v1.2.0 **released** — merged to `main` ff-only (tip `74941ec`), tag `v1.2.0` + GitHub
+  release published, `.claude-plugin/marketplace.json` live on the default branch so
+  `/plugin marketplace add rajkaria/boil-the-ocean` resolves (verified: default branch is
+  main, manifest is valid JSON there, `source: "./"` → plugin.json v1.2.0). One-click
+  plugin install: `/plugin marketplace add rajkaria/boil-the-ocean` +
   `/plugin install boil-the-ocean@boil-the-ocean` from inside Claude Code, no shell/clone;
   same manifest installs on Antigravity / Factory Droid / Copilot CLI. Plugin entry carries
   no version (inherits from plugin.json), so release checklist stays VERSION + plugin.json.
-  86/86 tests (4 new: marketplace.json validity + name/source resolution). Docs: README
-  Install §, docs/agents/CLAUDE-CODE.md § Plugin mode, CHANGELOG.
+  86/86 tests (4 new in v1.2.0: marketplace.json validity + name/source resolution).
+  CONTRIBUTING release checklist expanded (ff-to-main, tag+push, gh release,
+  marketplace smoke-verify). Docs: README Install §, docs/agents/CLAUDE-CODE.md § Plugin
+  mode, CHANGELOG.
 - v1.1.0 shipped to prod (commit `418fcb5` on main, tag + GitHub release published):
   installation overhaul modeled on gstack (github.com/garrytan/gstack) — curl-pipe
   bootstrap, `install.sh auto` agent detection, `VERSION` + `ocean version --check`
@@ -44,11 +46,27 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Next steps
 
-1. Merge v1.2.0 to main + tag (release checklist in CONTRIBUTING.md); the marketplace
-   only works once `.claude-plugin/marketplace.json` is on the default branch.
+1. **Registry submissions** (researched 2026-07-13; all are publishing actions needing
+   Raj's interactive auth/consent — do not auto-submit):
+   - **Anthropic community marketplace** (realistic official path): submit at
+     `clau.de/plugin-directory-submission` (in-app claude.ai form) → automated security
+     scan → lands in `anthropics/claude-plugins-community`, installable as
+     `@claude-community`. The `anthropics/claude-plugins-official` directory is curated at
+     Anthropic's discretion (partner-oriented, harder).
+   - **Codex (OpenAI)**: Codex reads `.claude-plugin/marketplace.json` as a
+     *legacy-compatible* path, so `codex plugin marketplace add rajkaria/boil-the-ocean`
+     should work against the shipped manifest with **zero changes** — needs a real-CLI
+     smoke test to confirm, then add Codex to README's plugin-install list. Self-serve
+     publishing to the official Codex directory is "coming soon" (not open as of mid-2026);
+     community list = PR to `hashgraph-online/awesome-codex-plugins`.
+   - **Cursor**: uses a **separate** `.cursor-plugin/marketplace.json` + `.cursor-plugin/
+     plugin.json` format (skills still `skills/SKILL.md`, rules `.mdc`, MCP `mcp.json`).
+     NOT compatible out of the box — needs a parallel `.cursor-plugin/` manifest (an
+     adapter). Publish at `cursor.com/marketplace/publish`.
+   - Low-effort discoverability PRs: `ComposioHQ/awesome-claude-plugins`,
+     `quemsah/awesome-claude-plugins`; independent dirs claudepluginhub.com /
+     claudemarketplaces.com.
 2. Dogfood a real run: `examples/todo-api-spec.md` in a scratch repo, `OCEAN_AGENT=claude`.
 3. burn-rate README cross-link section (spend-less / spend-to-finish siblings).
-4. Submit to central plugin registries (Anthropic official marketplace, Cursor, Codex) so
-   `/add-plugin` / search flows work without adding the repo by URL first.
-5. First-class adapters for aider / opencode / cursor-agent (recipe: docs/agents/CUSTOM.md § adding a first-class adapter).
-6. Windows/PowerShell support (open contribution).
+4. First-class adapters for aider / opencode / cursor-agent (recipe: docs/agents/CUSTOM.md § adding a first-class adapter).
+5. Windows/PowerShell support (open contribution).
