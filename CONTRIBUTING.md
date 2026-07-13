@@ -48,9 +48,22 @@ in one screenful of diff.
 1. `bash tests/test-ocean.sh` green on macOS + Linux (CI covers both).
 2. Bump `VERSION` **and** `.claude-plugin/plugin.json` in lockstep — the test suite
    asserts they match, and `ocean version --check` / `ocean upgrade` key off `VERSION`.
+   `.claude-plugin/marketplace.json` needs **no** version bump: its plugin entry
+   inherits the version from `plugin.json`. Do keep its `name` and plugin entry in sync
+   with the plugin — a test asserts the manifest points at a real `plugin.json`.
 3. Update `CHANGELOG.md`.
-4. Tag: `git tag vX.Y.Z && git push --tags`. Pushing to `main` is what makes the new
-   version visible to every install's update check.
+4. Land on `main` fast-forward-only (`git merge --ff-only <branch>` / `git push origin
+   HEAD:main`). Pushing to `main` is what makes the new version visible to every
+   install's update check **and** what makes `/plugin marketplace add
+   rajkaria/boil-the-ocean` resolve — the marketplace flow reads the manifest from the
+   default branch.
+5. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+6. Cut the GitHub release: `gh release create vX.Y.Z --title vX.Y.Z --notes-file <notes>`
+   (or `--generate-notes`), pasting the `CHANGELOG.md` section for that version.
+7. Smoke-verify the plugin path against `main`: `/plugin marketplace add
+   rajkaria/boil-the-ocean` then `/plugin install boil-the-ocean@boil-the-ocean` in a
+   throwaway Claude Code session, and confirm `ocean version --check` reports the new
+   version.
 
 ## Conduct
 
