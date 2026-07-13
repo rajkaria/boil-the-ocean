@@ -55,6 +55,16 @@ we can extend the regex, or add it locally in `hit_usage_limit()`.
 | Exits instantly, log says STOP file | Leftover `.ocean/STOP` | `ocean-daemon start` clears it automatically — but `once` mode does not: `rm .ocean/STOP` |
 | `state update failed (jq filter error)` | Hand-edited state.json | Restore from git (`git checkout .ocean/state.json`) — and don't edit it by hand |
 
+## Stale or broken installs
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Behavior doesn't match the README | Clone is behind the docs you're reading | `ocean version --check`, then `ocean upgrade` |
+| `ocean: command not found` after install | `~/.local/bin` not on PATH | `export PATH="$HOME/.local/bin:$PATH"` (doctor warns about this) |
+| A new command/script 404s after `git pull` | Pulling by hand skips the re-link step | `ocean upgrade` instead — it replays `install.sh` for every recorded target |
+| `upgrade` says history diverged | Local commits in the clone | It's your fork now: `git -C ~/.boil-the-ocean pull --rebase` yourself, or re-clone |
+| Update check feels like surveillance | It's a 5s `VERSION` fetch, no data sent | `OCEAN_UPDATE_CHECK=off` disables it entirely |
+
 ## Stop-guard weirdness (Claude Code)
 
 - **"My interactive session got blocked from stopping"** — it shouldn't:

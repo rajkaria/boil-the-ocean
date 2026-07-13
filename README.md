@@ -28,6 +28,7 @@ ocean:  plans 6 sprints → ships sprint 1 → hits a session limit → relaunch
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [Gemini CLI](#gemini-cli)
   - [Any other agent](#any-other-agent)
+  - [Upgrade & uninstall](#upgrade--uninstall)
 - [Quickstart](#quickstart)
 - [A run, end to end](#a-run-end-to-end)
 - [Session limits are the whole point](#session-limits-are-the-whole-point)
@@ -99,14 +100,36 @@ A deeper walkthrough lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Install
 
+**One command, no clone needed** — bootstraps itself into `~/.boil-the-ocean` and
+installs for Claude Code:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/install.sh | bash
+```
+
+Pass a target for other agents — or `auto`, which detects every agent CLI on the
+machine and installs for each one it finds:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/install.sh | bash -s -- auto
+```
+
+**Or let your agent do it.** Paste this into Claude Code (or any agent with shell
+access):
+
+> Install boil-the-ocean: run `curl -fsSL https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/install.sh | bash -s -- auto`, then run `ocean-daemon doctor` and show me the result.
+
+**Or clone manually** (contributors, forks, air-gapped machines):
+
 ```bash
 git clone https://github.com/rajkaria/boil-the-ocean.git
 cd boil-the-ocean
+./install.sh            # claude (default) | codex | gemini | bin | auto | all
 ```
 
 Requirements: `bash`, `git`, `jq` (macOS ships it; Linux: `apt install jq`), and at
-least one agent CLI. Every install is a symlink to your clone — `git pull` upgrades in
-place. `./uninstall.sh` removes everything cleanly.
+least one agent CLI. Every install is a symlink to the clone, so upgrading later is
+one command — see [Upgrade & uninstall](#upgrade--uninstall).
 
 ### Claude Code
 
@@ -156,6 +179,34 @@ ocean-daemon start
 
 If it can read files, run shell commands, and be launched headlessly, it can boil the
 ocean. Details: [docs/agents/CUSTOM.md](docs/agents/CUSTOM.md).
+
+### Upgrade & uninstall
+
+```bash
+ocean version --check   # local version + is a newer release available?
+ocean upgrade           # git pull the clone, refresh every installed target
+```
+
+`ocean-daemon doctor` also prints a one-line `INFO` when an update exists (5-second
+network ceiling, silent when offline; disable with `OCEAN_UPDATE_CHECK=off`).
+
+Uninstalling is symmetric — removes symlinks, hook registrations, and pointer blocks,
+keeps every project's `.ocean/` audit trail:
+
+```bash
+~/.boil-the-ocean/uninstall.sh     # or ./uninstall.sh from your clone
+rm -rf ~/.boil-the-ocean           # optionally, the clone itself
+```
+
+Deleted the clone already? Manual removal is four lines:
+
+```bash
+rm -f ~/.local/bin/ocean ~/.local/bin/ocean-daemon
+rm -f ~/.claude/scripts/ocean*.sh ~/.claude/commands/ocean*.md ~/.claude/skills/boil-ocean
+rm -rf ~/.local/state/boil-the-ocean
+# then delete the "boil-the-ocean" blocks from ~/.codex/AGENTS.md and ~/.gemini/GEMINI.md,
+# and the two ocean-* hook entries from ~/.claude/settings.json
+```
 
 ## Quickstart
 
@@ -363,7 +414,7 @@ Via WSL. Native PowerShell support is a welcome contribution.
 ## Development
 
 ```bash
-bash tests/test-ocean.sh   # 53 offline tests — mock agent binaries, zero tokens
+bash tests/test-ocean.sh   # 82 offline tests — mock agent binaries, fake $HOME installs, zero tokens
 ```
 
 CI runs the suite on macOS and Ubuntu on every push.

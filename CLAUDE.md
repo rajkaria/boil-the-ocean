@@ -7,8 +7,16 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Current state (2026-07-13)
 
+- v1.1.0 ready on branch `claude/optimistic-dijkstra-ca3530`: installation overhaul
+  modeled on gstack's setup machinery (github.com/garrytan/gstack) — curl-pipe
+  bootstrap install, `install.sh auto` agent detection, `VERSION` +
+  `ocean version --check` (HEAD-SHA-pinned raw fetch, offline-safe, bash-3.2 semver
+  compare since BSD sort lacks -V), `ocean upgrade` (ff-only pull + replay of
+  recorded install targets), doctor PATH/update checks. 82/82 tests (28 new: fake-HOME
+  installer round-trip, mocked-git bootstrap/upgrade, file:// update-check matrix).
+  Deliberately NOT adopted from gstack: telemetry, snooze machinery, team mode.
 - v1.0.0 shipped: https://github.com/rajkaria/boil-the-ocean — tag + GitHub release
-  published, CI green on macOS + Ubuntu, 54/54 tests.
+  published, CI green on macOS + Ubuntu.
 - Installed on this machine: `ocean` / `ocean-daemon` at `~/.local/bin` (symlinks to
   this clone); `ocean-daemon doctor` passes clean.
 - Born in burn-rate (branch `claude/boil-ocean-skill-baa5ea`), fully extracted — no

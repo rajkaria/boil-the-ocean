@@ -12,8 +12,10 @@ cd boil-the-ocean
 bash tests/test-ocean.sh
 ```
 
-That's it. Dependencies: `bash`, `jq`, `git`. The suite is fully offline — the daemon
-is tested against a mock agent binary, so tests cost zero tokens and run in seconds.
+That's it. Dependencies: `bash`, `jq`, `git`, `python3` (installer tests exercise the
+settings.json merge). The suite is fully offline — the daemon is tested against a mock
+agent binary and the installer against a fake `$HOME`, so tests cost zero tokens, touch
+nothing outside `mktemp -d`, and run in seconds.
 
 ## Ground rules
 
@@ -44,9 +46,11 @@ in one screenful of diff.
 ## Release checklist (maintainers)
 
 1. `bash tests/test-ocean.sh` green on macOS + Linux (CI covers both).
-2. Bump `.claude-plugin/plugin.json` version.
+2. Bump `VERSION` **and** `.claude-plugin/plugin.json` in lockstep — the test suite
+   asserts they match, and `ocean version --check` / `ocean upgrade` key off `VERSION`.
 3. Update `CHANGELOG.md`.
-4. Tag: `git tag vX.Y.Z && git push --tags`.
+4. Tag: `git tag vX.Y.Z && git push --tags`. Pushing to `main` is what makes the new
+   version visible to every install's update check.
 
 ## Conduct
 

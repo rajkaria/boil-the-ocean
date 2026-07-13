@@ -13,9 +13,86 @@ OCEAN_DIR="${OCEAN_DIR:-.ocean}"
 STATE="$OCEAN_DIR/state.json"
 
 die() { echo "ocean: $*" >&2; exit 1; }
-command -v jq >/dev/null 2>&1 || die "jq is required (macOS ships it; else brew install jq)"
+
+cmd="${1:-status}"
+if [ $# -gt 0 ]; then shift; fi
+
+# version/upgrade manage the install itself — they must work even when jq
+# (a runtime dependency, not an install dependency) is missing.
+case "$cmd" in
+  version|upgrade) ;;
+  *) command -v jq >/dev/null 2>&1 || die "jq is required (macOS ships it; else brew install jq)" ;;
+esac
 
 now() { date +%s; }
+
+# Real repo root — this script is usually invoked via the ~/.local/bin or
+# ~/.claude/scripts symlink, so resolve links before walking up.
+repo_root() {
+  local src="${BASH_SOURCE[0]}" dir
+  while [ -L "$src" ]; do
+    dir="$(cd "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+  done
+  cd "$(dirname "$src")/.." && pwd
+}
+
+# ver_gt A B → true when A is a strictly newer dot-separated version than B.
+# Pure bash: macOS BSD sort has no -V.
+ver_gt() {
+  [ "$1" = "$2" ] && return 1
+  local IFS=. i a b
+  local -a A B
+  read -r -a A <<< "$1"
+  read -r -a B <<< "$2"
+  for i in 0 1 2 3; do
+    a="${A[i]:-0}"; b="${B[i]:-0}"
+    [ "$a" -gt "$b" ] 2>/dev/null && return 0
+    [ "$b" -gt "$a" ] 2>/dev/null && return 1
+  done
+  return 1
+}
+
+# Compare the local VERSION to the repo's main branch. Echoes one line:
+#   UP_TO_DATE <v> | UPDATE_AVAILABLE <local> <remote> | UNREACHABLE <v> | DISABLED <v>
+# Never fails, never blocks past ~5s — safe to call from doctor. Overrides
+# (tests, mirrors): OCEAN_REMOTE_URL (raw VERSION URL — file:// works, skips
+# the ls-remote path entirely), OCEAN_REMOTE_REPO (git URL for HEAD lookup),
+# OCEAN_UPDATE_CHECK=off (disable all network).
+check_update() {
+  local root local_v remote sha
+  root="$(repo_root)"
+  local_v="$(tr -d '[:space:]' < "$root/VERSION" 2>/dev/null || true)"
+  [ -n "$local_v" ] || { echo "UNREACHABLE unknown"; return 0; }
+  if [ "${OCEAN_UPDATE_CHECK:-on}" = "off" ]; then echo "DISABLED $local_v"; return 0; fi
+  remote=""
+  # GitHub's branch-raw CDN can serve stale content for minutes after a push,
+  # so resolve the live HEAD SHA first and fetch a SHA-pinned URL. An explicit
+  # OCEAN_REMOTE_URL skips this and is honored verbatim.
+  if [ -z "${OCEAN_REMOTE_URL:-}" ]; then
+    sha="$(GIT_TERMINAL_PROMPT=0 GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=5 \
+      git ls-remote "${OCEAN_REMOTE_REPO:-https://github.com/rajkaria/boil-the-ocean.git}" refs/heads/main 2>/dev/null \
+      | awk '{print $1}')"
+    if echo "$sha" | grep -qE '^[0-9a-f]{40}$'; then
+      remote="$(curl -sf --max-time 5 "https://raw.githubusercontent.com/rajkaria/boil-the-ocean/$sha/VERSION" 2>/dev/null || true)"
+    fi
+  fi
+  if [ -z "$remote" ]; then
+    remote="$(curl -sf --max-time 5 "${OCEAN_REMOTE_URL:-https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/VERSION}" 2>/dev/null || true)"
+  fi
+  remote="$(echo "$remote" | tr -d '[:space:]')"
+  # Reject anything that isn't a version number (HTML error pages, redirects).
+  if ! echo "$remote" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+    echo "UNREACHABLE $local_v"; return 0
+  fi
+  if ver_gt "$remote" "$local_v"; then
+    echo "UPDATE_AVAILABLE $local_v $remote"
+  else
+    # Equal, or a dev clone running ahead of main — both are "nothing to do".
+    echo "UP_TO_DATE $local_v"
+  fi
+}
 
 need_state() {
   [ -f "$STATE" ] || die "no active run ($STATE missing) — start one with: ocean.sh init <spec-path>"
@@ -40,9 +117,6 @@ ago() {
   elif [ "$secs" -lt 86400 ]; then echo "$((secs / 3600))h ago"
   else echo "$((secs / 86400))d ago"; fi
 }
-
-cmd="${1:-status}"
-if [ $# -gt 0 ]; then shift; fi
 
 case "$cmd" in
 
@@ -245,8 +319,51 @@ EOF
     fi
     ;;
 
+  version)
+    root="$(repo_root)"
+    v="$(tr -d '[:space:]' < "$root/VERSION" 2>/dev/null || echo unknown)"
+    echo "boil-the-ocean v$v"
+    if [ "${1:-}" = "--check" ]; then
+      result="$(check_update)"
+      # shellcheck disable=SC2086 — intentional word split into $1 $2 $3
+      set -- $result
+      case "$1" in
+        UP_TO_DATE)        echo "up to date" ;;
+        UPDATE_AVAILABLE)  echo "update available: v$2 → v$3 — run: ocean upgrade" ;;
+        DISABLED)          echo "update check disabled (OCEAN_UPDATE_CHECK=off)" ;;
+        *)                 echo "could not reach the remote — skipped update check" ;;
+      esac
+    fi
+    ;;
+
+  upgrade)
+    root="$(repo_root)"
+    command -v git >/dev/null 2>&1 || die "git is required to upgrade"
+    [ -e "$root/.git" ] || die "$root is not a git clone — reinstall from https://github.com/rajkaria/boil-the-ocean"
+    old="$(tr -d '[:space:]' < "$root/VERSION" 2>/dev/null || echo unknown)"
+    if [ -n "$(git -C "$root" status --porcelain 2>/dev/null)" ]; then
+      echo "ocean: local changes present in $root — attempting a fast-forward pull anyway" >&2
+    fi
+    git -C "$root" pull --ff-only \
+      || die "git pull failed (offline, or local history diverged) — resolve in $root and re-run"
+    new="$(tr -d '[:space:]' < "$root/VERSION" 2>/dev/null || echo unknown)"
+    chmod +x "$root"/scripts/*.sh "$root"/install.sh "$root"/uninstall.sh "$root"/tests/*.sh 2>/dev/null || true
+    # Re-run the installer for every target installed on this machine so files
+    # added by the new version (commands, scripts, hooks) get linked too.
+    targets_file="${OCEAN_STATE_HOME:-$HOME/.local/state/boil-the-ocean}/installed-targets"
+    if [ -f "$targets_file" ]; then targets="$(cat "$targets_file")"; else targets="bin"; fi
+    for t in $targets; do
+      bash "$root/install.sh" "$t"
+    done
+    if [ "$old" = "$new" ]; then
+      echo "already up to date (v$new)"
+    else
+      echo "upgraded: v$old → v$new — what changed: $root/CHANGELOG.md"
+    fi
+    ;;
+
   *)
     die "unknown command: $cmd
-usage: ocean.sh <init|sprint-add|plan-done|sprint-start|sprint-done|checkpoint|heartbeat|block|unblock|reopen|set-status|iteration|stop|status|json>"
+usage: ocean.sh <init|sprint-add|plan-done|sprint-start|sprint-done|checkpoint|heartbeat|block|unblock|reopen|set-status|iteration|stop|status|json|version [--check]|upgrade>"
     ;;
 esac

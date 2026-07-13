@@ -1,6 +1,6 @@
 {
   "name": "boil-the-ocean",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hand your agent an entire spec and walk away: autonomous multi-sprint execution with a decision journal, checkpointed file-based state, and a scheduler that relaunches fresh sessions whenever context or usage limits hit. Works with Claude Code, Codex, Gemini CLI, and any headless agent.",
   "author": {
     "name": "rajkaria",

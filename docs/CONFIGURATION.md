@@ -62,6 +62,22 @@ in a trusted repo, `yolo` only inside a container/VM.
 
 macOS users also get native `osascript` notifications automatically.
 
+## Install and updates
+
+These affect `install.sh`, `ocean version --check`, and `ocean upgrade` — not runs.
+
+| Var | Default | Meaning |
+|---|---|---|
+| `OCEAN_HOME` | `~/.boil-the-ocean` | Where the curl-pipe bootstrap clones the repo |
+| `OCEAN_REPO_URL` | *(GitHub URL)* | Clone source for the bootstrap (forks, mirrors) |
+| `OCEAN_UPDATE_CHECK` | `on` | `off` disables all update-check network calls (`version --check`, doctor's INFO line) |
+| `OCEAN_REMOTE_URL` | *(GitHub raw URL)* | Where `version --check` fetches the remote `VERSION` (a `file://` URL works — used by the test suite) |
+| `OCEAN_REMOTE_REPO` | *(GitHub URL)* | Git URL used to resolve the live HEAD SHA for a CDN-staleness-proof check |
+| `OCEAN_STATE_HOME` | `~/.local/state/boil-the-ocean` | Where installed targets are recorded for `ocean upgrade` |
+
+The update check is offline-safe by construction: 5-second network ceilings, and any
+failure degrades to "skipped update check" — it can never block or fail a command.
+
 ## Recipes
 
 ### Telegram pings per sprint

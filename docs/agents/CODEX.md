@@ -5,6 +5,14 @@ file does the behavioral work — no Codex-side plugin system needed.
 
 ## Install
 
+No clone needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/install.sh | bash -s -- codex
+```
+
+Or from a clone:
+
 ```bash
 git clone https://github.com/rajkaria/boil-the-ocean.git
 cd boil-the-ocean

@@ -22,6 +22,10 @@ echo "[+] Claude Code symlinks removed"
 rm -f "$HOME/.local/bin/ocean" "$HOME/.local/bin/ocean-daemon"
 echo "[+] CLI symlinks removed"
 
+# --- Install state (recorded targets for `ocean upgrade`) ---
+rm -rf "${OCEAN_STATE_HOME:-$HOME/.local/state/boil-the-ocean}"
+echo "[+] Install state removed"
+
 # --- Claude Code hook registrations ---
 if [ -f "$SETTINGS_FILE" ] && command -v python3 >/dev/null 2>&1; then
   python3 - "$SETTINGS_FILE" <<'PYEOF'
@@ -69,3 +73,5 @@ done
 echo "[+] boil-the-ocean uninstalled. Per-project .ocean/ directories were kept."
 echo "    If you installed launchd agents for projects, remove each with:"
 echo "    bash scripts/ocean-daemon.sh uninstall-launchd   (from that project root)"
+echo "    The clone itself was kept — delete it to remove everything"
+echo "    (rm -rf ~/.boil-the-ocean if you installed via the curl one-liner)."

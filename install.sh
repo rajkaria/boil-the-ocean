@@ -6,17 +6,37 @@
 #   ./install.sh codex        install for OpenAI Codex CLI (AGENTS.md pointer)
 #   ./install.sh gemini       install for Gemini CLI (GEMINI.md pointer)
 #   ./install.sh bin          just the CLI: `ocean` + `ocean-daemon` on PATH
+#   ./install.sh auto         detect installed agent CLIs, install for each
 #   ./install.sh all          all of the above
 #
-# Everything is symlinked to this clone, so `git pull` updates the install.
-# Per-agent details: docs/agents/. Claude Code can also consume this repo
-# directly as a plugin (.claude-plugin/ + hooks/hooks.json are wired for it).
+# No clone yet? The script bootstraps itself (clones to ~/.boil-the-ocean):
+#   curl -fsSL https://raw.githubusercontent.com/rajkaria/boil-the-ocean/main/install.sh | bash
+#
+# Everything is symlinked to this clone, so `ocean upgrade` (or `git pull`)
+# updates the install. Per-agent details: docs/agents/. Claude Code can also
+# consume this repo directly as a plugin (.claude-plugin/ + hooks/hooks.json).
 # ============================================================================
 set -euo pipefail
 
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+# --- Bootstrap: running outside a clone (curl | bash, or a lone download) ---
+# Clone (or update) $OCEAN_HOME, then hand off to the clone's installer.
+if [ ! -f "$REPO_DIR/scripts/ocean.sh" ]; then
+  OCEAN_HOME="${OCEAN_HOME:-$HOME/.boil-the-ocean}"
+  REPO_URL="${OCEAN_REPO_URL:-https://github.com/rajkaria/boil-the-ocean.git}"
+  command -v git >/dev/null 2>&1 || { echo "[x] git is required to bootstrap the install" >&2; exit 1; }
+  if [ -f "$OCEAN_HOME/scripts/ocean.sh" ]; then
+    echo "[+] existing clone found at $OCEAN_HOME — updating it"
+    git -C "$OCEAN_HOME" pull --ff-only || echo "[!] pull failed — installing the existing clone as-is"
+  else
+    echo "[+] cloning boil-the-ocean → $OCEAN_HOME"
+    git clone --depth 1 "$REPO_URL" "$OCEAN_HOME"
+  fi
+  exec bash "$OCEAN_HOME/install.sh" "$@"
+fi
+
 TARGET="${1:-claude}"
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[ -f "$REPO_DIR/scripts/ocean.sh" ] || { echo "[x] run this from the boil-the-ocean repo"; exit 1; }
 
 if [ -t 1 ]; then
   RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
@@ -30,6 +50,14 @@ error() { echo -e "${RED}[x]${NC} $1"; }
 command -v jq >/dev/null 2>&1 || warn "jq not found — the scripts require it (macOS ships it; else: brew install jq / apt install jq)"
 
 chmod +x "$REPO_DIR"/scripts/*.sh "$REPO_DIR"/install.sh "$REPO_DIR"/uninstall.sh "$REPO_DIR"/tests/*.sh 2>/dev/null || true
+
+# Installed targets are recorded so `ocean upgrade` can refresh every one of
+# them after a pull (new commands/scripts need re-linking on some targets).
+STATE_HOME="${OCEAN_STATE_HOME:-$HOME/.local/state/boil-the-ocean}"
+record_target() {
+  mkdir -p "$STATE_HOME"
+  grep -qx "$1" "$STATE_HOME/installed-targets" 2>/dev/null || echo "$1" >> "$STATE_HOME/installed-targets"
+}
 
 # --- shared: CLI symlinks ---------------------------------------------------
 install_bin() {
@@ -148,21 +176,47 @@ install_gemini() {
   echo "      OCEAN_AGENT=gemini ocean-daemon start"
 }
 
+# --- auto: install for every agent CLI present on this machine --------------
+install_auto() {
+  local found=0
+  if [ -d "$HOME/.claude" ]; then
+    if install_claude; then record_target claude; found=1; fi
+    echo ""
+  elif command -v claude >/dev/null 2>&1; then
+    warn "claude CLI found but ~/.claude missing — run claude once, then: ./install.sh claude"
+  fi
+  if command -v codex >/dev/null 2>&1; then
+    install_codex; record_target codex; found=1; echo ""
+  fi
+  if command -v gemini >/dev/null 2>&1; then
+    install_gemini; record_target gemini; found=1; echo ""
+  fi
+  if [ "$found" -eq 0 ]; then
+    warn "no agent CLIs detected (claude / codex / gemini) — installing the ocean CLI only"
+    install_bin; record_target bin
+  fi
+}
+
+OCEAN_VERSION="$(tr -d '[:space:]' < "$REPO_DIR/VERSION" 2>/dev/null || true)"
 echo ""
-echo -e "  ${BOLD}Boil the Ocean Installer${NC}"
+echo -e "  ${BOLD}Boil the Ocean Installer${NC}${OCEAN_VERSION:+ v$OCEAN_VERSION}"
 echo "  ========================"
 echo ""
 
 case "$TARGET" in
-  claude) install_claude ;;
-  codex)  install_codex ;;
-  gemini) install_gemini ;;
-  bin)    install_bin ;;
-  all)    install_claude; echo ""; install_codex; echo ""; install_gemini ;;
-  *)      error "unknown target '$TARGET' (claude|codex|gemini|bin|all)"; exit 1 ;;
+  claude) install_claude; record_target claude ;;
+  codex)  install_codex;  record_target codex ;;
+  gemini) install_gemini; record_target gemini ;;
+  bin)    install_bin;    record_target bin ;;
+  auto)   install_auto ;;
+  all)    install_claude; record_target claude; echo ""
+          install_codex;  record_target codex;  echo ""
+          install_gemini; record_target gemini ;;
+  *)      error "unknown target '$TARGET' (claude|codex|gemini|bin|auto|all)"; exit 1 ;;
 esac
 
 echo ""
 info "Done. Preflight-check any project with:  ocean-daemon doctor"
+info "Upgrade any time with:  ocean upgrade   (check first: ocean version --check)"
 info "Docs: README.md · docs/agents/ · docs/CONFIGURATION.md"
 echo ""

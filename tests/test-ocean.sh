@@ -44,6 +44,7 @@ export OCEAN_LOOP_SLEEP=0
 export OCEAN_BACKOFF_BASE=1
 export OCEAN_ITERATION_TIMEOUT=30
 export OCEAN_SH_PATH="$OCEAN"
+export OCEAN_UPDATE_CHECK=off   # keep the suite fully offline; version tests re-enable per-call
 
 # ---------------------------------------------------------------------------
 section "syntax checks"
@@ -275,6 +276,128 @@ ln -sf "$DAEMON" "$TMP/bin/ocean-daemon-link"
 doctor_out="$(OCEAN_CLAUDE_BIN="$TMP/bin/claude" bash "$TMP/bin/ocean-daemon-link" doctor 2>&1)"
 echo "$doctor_out" | grep -q "protocol file present" \
   && ok "symlinked daemon resolves the real repo paths" || bad "symlinked daemon resolves the real repo paths" "$doctor_out"
+
+# ---------------------------------------------------------------------------
+section "version + update check"
+sem="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+echo "$sem" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && ok "VERSION is semver ($sem)" || bad "VERSION is semver" "$sem"
+[ "$(jq -r .version "$ROOT/.claude-plugin/plugin.json")" = "$sem" ] \
+  && ok "plugin.json version matches VERSION" || bad "plugin.json version matches VERSION"
+
+bash "$OCEAN" version | grep -q "boil-the-ocean v$sem" && ok "ocean version prints the version" || bad "ocean version prints the version"
+ln -sf "$OCEAN" "$TMP/bin/ocean-link"
+bash "$TMP/bin/ocean-link" version | grep -q "v$sem" \
+  && ok "version resolves the repo through the install symlink" || bad "version resolves the repo through the install symlink"
+
+REMOTE_V="$TMP/remote-version"
+echo "$sem" > "$REMOTE_V"
+out="$(OCEAN_UPDATE_CHECK=on OCEAN_REMOTE_URL="file://$REMOTE_V" bash "$OCEAN" version --check)"
+echo "$out" | grep -q "up to date" && ok "--check: equal remote → up to date" || bad "--check: equal remote → up to date" "$out"
+
+echo "99.0.0" > "$REMOTE_V"
+out="$(OCEAN_UPDATE_CHECK=on OCEAN_REMOTE_URL="file://$REMOTE_V" bash "$OCEAN" version --check)"
+echo "$out" | grep -q "update available: v$sem → v99.0.0" && ok "--check: newer remote → update available" || bad "--check: newer remote → update available" "$out"
+
+echo "0.0.1" > "$REMOTE_V"
+out="$(OCEAN_UPDATE_CHECK=on OCEAN_REMOTE_URL="file://$REMOTE_V" bash "$OCEAN" version --check)"
+echo "$out" | grep -q "up to date" && ok "--check: older remote (dev clone ahead) → up to date" || bad "--check: older remote → up to date" "$out"
+
+echo "<html>404 Not Found</html>" > "$REMOTE_V"
+out="$(OCEAN_UPDATE_CHECK=on OCEAN_REMOTE_URL="file://$REMOTE_V" bash "$OCEAN" version --check)"
+echo "$out" | grep -q "skipped update check" && ok "--check: garbage remote → skipped, not a false positive" || bad "--check: garbage remote → skipped" "$out"
+
+out="$(OCEAN_UPDATE_CHECK=off bash "$OCEAN" version --check)"
+echo "$out" | grep -q "disabled" && ok "--check: OCEAN_UPDATE_CHECK=off disables the network" || bad "--check: OCEAN_UPDATE_CHECK=off" "$out"
+
+# Doctor surfaces availability as INFO without failing the preflight
+new_project
+git init --quiet 2>/dev/null
+bash "$OCEAN" init SPEC.md --verify-cmd "true" >/dev/null
+echo "99.0.0" > "$REMOTE_V"
+doctor_out="$(OCEAN_UPDATE_CHECK=on OCEAN_REMOTE_URL="file://$REMOTE_V" OCEAN_CLAUDE_BIN="$TMP/bin/claude" bash "$DAEMON" doctor 2>&1)"; doctor_rc=$?
+echo "$doctor_out" | grep -q "INFO  update available" && [ "$doctor_rc" -eq 0 ] \
+  && ok "doctor surfaces update availability as INFO" || bad "doctor surfaces update availability as INFO" "rc=$doctor_rc"
+
+# ---------------------------------------------------------------------------
+section "installer (fake HOME)"
+FAKE="$TMP/fakehome"
+mkdir -p "$FAKE/.claude"
+mkdir -p "$TMP/agentbins"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/agentbins/codex";  chmod +x "$TMP/agentbins/codex"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/agentbins/gemini"; chmod +x "$TMP/agentbins/gemini"
+
+HOME="$FAKE" PATH="$TMP/agentbins:$PATH" bash "$ROOT/install.sh" auto >/dev/null 2>&1
+irc=$?
+[ "$irc" -eq 0 ] && ok "install.sh auto exits 0" || bad "install.sh auto exits 0" "rc=$irc"
+[ -L "$FAKE/.claude/scripts/ocean.sh" ] && [ -L "$FAKE/.claude/scripts/ocean-daemon.sh" ] \
+  && ok "auto: claude scripts linked" || bad "auto: claude scripts linked"
+[ -L "$FAKE/.claude/commands/ocean.md" ] && [ -L "$FAKE/.claude/skills/boil-ocean" ] \
+  && ok "auto: claude commands + skill linked" || bad "auto: claude commands + skill linked"
+jq -e '.hooks.Stop and .hooks.SessionStart' "$FAKE/.claude/settings.json" >/dev/null 2>&1 \
+  && ok "auto: claude hooks registered" || bad "auto: claude hooks registered"
+grep -q "boil-the-ocean:start" "$FAKE/.codex/AGENTS.md" 2>/dev/null \
+  && ok "auto: codex pointer appended (detected via PATH)" || bad "auto: codex pointer appended"
+grep -q "boil-the-ocean:start" "$FAKE/.gemini/GEMINI.md" 2>/dev/null \
+  && ok "auto: gemini pointer appended (detected via PATH)" || bad "auto: gemini pointer appended"
+[ -L "$FAKE/.local/bin/ocean" ] && [ -L "$FAKE/.local/bin/ocean-daemon" ] \
+  && ok "auto: ocean CLI on ~/.local/bin" || bad "auto: ocean CLI on ~/.local/bin"
+targets="$(cat "$FAKE/.local/state/boil-the-ocean/installed-targets" 2>/dev/null)"
+echo "$targets" | grep -qx "claude" && echo "$targets" | grep -qx "codex" && echo "$targets" | grep -qx "gemini" \
+  && ok "auto: installed targets recorded for ocean upgrade" || bad "auto: installed targets recorded" "$targets"
+
+HOME="$FAKE" PATH="$TMP/agentbins:$PATH" bash "$ROOT/install.sh" auto >/dev/null 2>&1
+[ "$(grep -c "boil-the-ocean:start" "$FAKE/.codex/AGENTS.md")" = "1" ] \
+  && ok "re-install is idempotent (pointer not duplicated)" || bad "re-install is idempotent"
+
+HOME="$FAKE" bash "$ROOT/uninstall.sh" >/dev/null 2>&1
+[ ! -e "$FAKE/.claude/scripts/ocean.sh" ] && [ ! -e "$FAKE/.local/bin/ocean" ] \
+  && ok "uninstall removes symlinks" || bad "uninstall removes symlinks"
+grep -q "boil-the-ocean:start" "$FAKE/.codex/AGENTS.md" 2>/dev/null \
+  && bad "uninstall removes pointer blocks" || ok "uninstall removes pointer blocks"
+jq -e '.hooks | to_entries | map(.value[].hooks[].command) | flatten | map(select(contains("ocean-"))) | length == 0' \
+  "$FAKE/.claude/settings.json" >/dev/null 2>&1 \
+  && ok "uninstall removes hook registrations" || bad "uninstall removes hook registrations"
+[ ! -e "$FAKE/.local/state/boil-the-ocean" ] \
+  && ok "uninstall removes install state" || bad "uninstall removes install state"
+
+# ---------------------------------------------------------------------------
+section "installer bootstrap (curl-style) + ocean upgrade"
+# Bootstrap: install.sh alone in an empty dir must clone and hand off.
+mkdir -p "$TMP/solo" "$TMP/gitmock"
+cp "$ROOT/install.sh" "$TMP/solo/install.sh"
+cat > "$TMP/gitmock/git" <<EOF
+#!/usr/bin/env bash
+# git mock: 'clone <url> <dest>' copies the real repo; everything else no-ops.
+if [ "\$1" = "clone" ]; then
+  for dest; do :; done
+  cp -R "$ROOT" "\$dest"
+  exit 0
+fi
+case "\$*" in
+  *"pull --ff-only"*) echo "Already up to date."; exit 0 ;;
+  *"status --porcelain"*) exit 0 ;;
+esac
+exit 0
+EOF
+chmod +x "$TMP/gitmock/git"
+FAKE2="$TMP/fakehome2"; mkdir -p "$FAKE2"
+(cd "$TMP/solo" && HOME="$FAKE2" PATH="$TMP/gitmock:$PATH" bash install.sh bin >/dev/null 2>&1)
+[ -f "$FAKE2/.boil-the-ocean/scripts/ocean.sh" ] \
+  && ok "bootstrap clones the repo to ~/.boil-the-ocean" || bad "bootstrap clones the repo"
+[ -L "$FAKE2/.local/bin/ocean" ] \
+  && ok "bootstrap hands off to the clone's installer" || bad "bootstrap hands off to the clone's installer"
+case "$(readlink "$FAKE2/.local/bin/ocean")" in
+  "$FAKE2/.boil-the-ocean/"*) ok "bootstrap symlinks point into the clone" ;;
+  *) bad "bootstrap symlinks point into the clone" "$(readlink "$FAKE2/.local/bin/ocean")" ;;
+esac
+
+# Upgrade: mocked git pull; re-runs the installer for recorded targets.
+FAKE3="$TMP/fakehome3"; mkdir -p "$FAKE3"
+out="$(HOME="$FAKE3" PATH="$TMP/gitmock:$PATH" bash "$OCEAN" upgrade 2>&1)"; urc=$?
+[ "$urc" -eq 0 ] && echo "$out" | grep -q "already up to date" \
+  && ok "upgrade pulls and reports up to date" || bad "upgrade pulls and reports up to date" "rc=$urc"
+[ -L "$FAKE3/.local/bin/ocean" ] \
+  && ok "upgrade re-runs the installer (default bin target)" || bad "upgrade re-runs the installer"
 
 # ---------------------------------------------------------------------------
 section "stop-guard hook"

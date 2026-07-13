@@ -441,6 +441,17 @@ case "$cmd" in
     else
       echo "  INFO  daemon not running"
     fi
+    case ":$PATH:" in
+      *":$HOME/.local/bin:"*) okline "~/.local/bin on PATH" ;;
+      *) [ -e "$HOME/.local/bin/ocean" ] \
+           && warnline "~/.local/bin not on PATH — ocean/ocean-daemon won't resolve (export PATH=\"\$HOME/.local/bin:\$PATH\")" ;;
+    esac
+    # Update availability (offline-safe: ≤5s, silent on failure; disable with
+    # OCEAN_UPDATE_CHECK=off). Informational only — never fails the preflight.
+    upd="$(bash "$OCEAN_SH" version --check 2>/dev/null | tail -n 1 || true)"
+    case "$upd" in
+      *"update available"*) echo "  INFO  $upd" ;;
+    esac
     echo ""
     echo "$okc pass, $warnc warn"
     [ "$warnc" -eq 0 ]
