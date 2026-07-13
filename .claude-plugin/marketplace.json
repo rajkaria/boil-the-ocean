@@ -1,0 +1,27 @@
+{
+  "name": "boil-the-ocean",
+  "owner": {
+    "name": "rajkaria",
+    "url": "https://github.com/rajkaria"
+  },
+  "metadata": {
+    "description": "One-plugin marketplace for boil-the-ocean — autonomous multi-sprint execution for coding agents. Add this repo as a marketplace, then install the plugin."
+  },
+  "plugins": [
+    {
+      "name": "boil-the-ocean",
+      "source": "./",
+      "description": "Hand your agent an entire spec and walk away: autonomous multi-sprint execution with a decision journal, checkpointed file-based state, and a scheduler that relaunches fresh sessions whenever context or usage limits hit.",
+      "homepage": "https://github.com/rajkaria/boil-the-ocean",
+      "license": "MIT",
+      "category": "workflow",
+      "keywords": [
+        "autonomous-agent",
+        "multi-sprint",
+        "scheduler",
+        "session-limits",
+        "long-running-tasks"
+      ]
+    }
+  ]
+}

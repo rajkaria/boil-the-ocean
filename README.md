@@ -25,6 +25,7 @@ ocean:  plans 6 sprints → ships sprint 1 → hits a session limit → relaunch
 - [How it works](#how-it-works)
 - [Install](#install)
   - [Claude Code](#claude-code)
+  - [Other plugin-format agents](#other-plugin-format-agents)
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [Gemini CLI](#gemini-cli)
   - [Any other agent](#any-other-agent)
@@ -133,15 +134,51 @@ one command — see [Upgrade & uninstall](#upgrade--uninstall).
 
 ### Claude Code
 
+**As a plugin** — no shell, no clone. This repo is its own one-plugin marketplace
+(`.claude-plugin/marketplace.json`), so from inside Claude Code:
+
+```
+/plugin marketplace add rajkaria/boil-the-ocean
+/plugin install boil-the-ocean@boil-the-ocean
+```
+
+That gives you the whole in-editor integration: native skill triggering ("boil the
+ocean", "build the whole spec"), the `/ocean`, `/ocean-status`, `/ocean-stop` slash
+commands, the Stop-hook checkpoint guard, and the SessionStart announcer — all wired
+through `CLAUDE_PLUGIN_ROOT`, and updated in place whenever you re-run `/plugin install`.
+
+**As a full install** — adds the `ocean` / `ocean-daemon` CLI on your `PATH` (the
+plugin runs everything through its own bundled scripts, so you only need this for the
+short commands and for unattended/launchd runs from a terminal):
+
 ```bash
 ./install.sh            # skill + /ocean commands + hooks + `ocean` CLI
 ```
 
-Richest integration: native skill triggering ("boil the ocean", "build the whole
-spec"), `/ocean`, `/ocean-status`, `/ocean-stop` slash commands, the Stop-hook
-checkpoint guard, and the SessionStart announcer. The repo also works directly as a
-Claude Code **plugin** (`.claude-plugin/` + `hooks/hooks.json` are wired for
-`CLAUDE_PLUGIN_ROOT`). Details: [docs/agents/CLAUDE-CODE.md](docs/agents/CLAUDE-CODE.md).
+The two compose: install the plugin for the in-editor experience, run the CLI installer
+when you want to drive the daemon from a shell. Details:
+[docs/agents/CLAUDE-CODE.md](docs/agents/CLAUDE-CODE.md).
+
+### Other plugin-format agents
+
+The same manifest installs on any agent that speaks the Claude Code plugin-marketplace
+protocol — add this repo as a marketplace, then install the plugin:
+
+```bash
+# Antigravity — one step
+agy plugin install https://github.com/rajkaria/boil-the-ocean
+
+# Factory Droid
+droid plugin marketplace add https://github.com/rajkaria/boil-the-ocean
+droid plugin install boil-the-ocean@boil-the-ocean
+
+# GitHub Copilot CLI
+copilot plugin marketplace add rajkaria/boil-the-ocean
+copilot plugin install boil-the-ocean@boil-the-ocean
+```
+
+These give you the skill + commands + hooks in that agent. For headless/unattended
+runs, still add the `ocean` CLI with the curl one-liner above (`bash -s -- bin`).
 
 ### OpenAI Codex CLI
 
@@ -414,7 +451,7 @@ Via WSL. Native PowerShell support is a welcome contribution.
 ## Development
 
 ```bash
-bash tests/test-ocean.sh   # 82 offline tests — mock agent binaries, fake $HOME installs, zero tokens
+bash tests/test-ocean.sh   # 86 offline tests — mock agent binaries, fake $HOME installs, zero tokens
 ```
 
 CI runs the suite on macOS and Ubuntu on every push.

@@ -31,10 +31,32 @@ What this does (all symlinks → your clone; `git pull` upgrades in place):
 
 ### Plugin mode (alternative)
 
-The repo is also a valid Claude Code **plugin**: `.claude-plugin/plugin.json` +
-`hooks/hooks.json` use `${CLAUDE_PLUGIN_ROOT}`, so adding this repo through any plugin
-marketplace flow wires commands, skill, and hooks without `install.sh`. You still want
-`./install.sh bin` for the `ocean` / `ocean-daemon` CLI.
+The repo is also a valid Claude Code **plugin** *and* its own one-plugin marketplace:
+`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `hooks/hooks.json`
+(all wired through `${CLAUDE_PLUGIN_ROOT}`). Install it from inside Claude Code with no
+shell and no clone:
+
+```
+/plugin marketplace add rajkaria/boil-the-ocean
+/plugin install boil-the-ocean@boil-the-ocean
+```
+
+`/plugin marketplace add` registers this repo; `/plugin install <plugin>@<marketplace>`
+pulls it in (both names are `boil-the-ocean`, hence the doubled token). That wires the
+`boil-ocean` skill, the `/ocean*` commands, and both hooks. Re-running `/plugin install`
+updates in place.
+
+The same manifest installs on other agents that speak the plugin-marketplace protocol —
+`agy plugin install https://github.com/rajkaria/boil-the-ocean` (Antigravity),
+`droid plugin marketplace add …` + `droid plugin install boil-the-ocean@boil-the-ocean`
+(Factory Droid), `copilot plugin marketplace add rajkaria/boil-the-ocean` + install
+(GitHub Copilot CLI).
+
+The plugin is self-sufficient for driving a run *inside a session* — the commands call
+the plugin's own bundled `scripts/`, so you can even start the daemon with
+`bash <plugin-root>/scripts/ocean-daemon.sh start`. Add `./install.sh bin` only when you
+want the short `ocean` / `ocean-daemon` commands on your `PATH`, or the launchd
+reboot-survival install for unattended runs.
 
 ## Usage
 

@@ -51,10 +51,11 @@ section "syntax checks"
 for f in "$OCEAN" "$DAEMON" "$GUARD" "$ANNOUNCE" "$ROOT/install.sh" "$ROOT/uninstall.sh"; do
   if bash -n "$f" 2>/dev/null; then ok "bash -n $(basename "$f")"; else bad "bash -n $(basename "$f")"; fi
 done
-if jq empty "$ROOT/hooks/hooks.json" 2>/dev/null && jq empty "$ROOT/.claude-plugin/plugin.json" 2>/dev/null; then
-  ok "hooks.json + plugin.json are valid JSON"
+if jq empty "$ROOT/hooks/hooks.json" 2>/dev/null && jq empty "$ROOT/.claude-plugin/plugin.json" 2>/dev/null \
+   && jq empty "$ROOT/.claude-plugin/marketplace.json" 2>/dev/null; then
+  ok "hooks.json + plugin.json + marketplace.json are valid JSON"
 else
-  bad "hooks.json + plugin.json are valid JSON"
+  bad "hooks.json + plugin.json + marketplace.json are valid JSON"
 fi
 
 # ---------------------------------------------------------------------------
@@ -283,6 +284,19 @@ sem="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 echo "$sem" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && ok "VERSION is semver ($sem)" || bad "VERSION is semver" "$sem"
 [ "$(jq -r .version "$ROOT/.claude-plugin/plugin.json")" = "$sem" ] \
   && ok "plugin.json version matches VERSION" || bad "plugin.json version matches VERSION"
+
+# marketplace.json self-hosts the plugin at repo root — its entry must name the same
+# plugin and point source at "./" so `/plugin install boil-the-ocean@boil-the-ocean` resolves.
+MKT="$ROOT/.claude-plugin/marketplace.json"
+[ "$(jq -r .name "$MKT")" = "$(jq -r .name "$ROOT/.claude-plugin/plugin.json")" ] \
+  && ok "marketplace name matches the plugin name" || bad "marketplace name matches the plugin name"
+[ "$(jq -r '.plugins[0].name' "$MKT")" = "$(jq -r .name "$ROOT/.claude-plugin/plugin.json")" ] \
+  && ok "marketplace plugin entry names the plugin" || bad "marketplace plugin entry names the plugin"
+[ "$(jq -r '.plugins[0].source' "$MKT")" = "./" ] \
+  && ok "marketplace plugin source is repo root (./)" || bad "marketplace plugin source is ./" "$(jq -r '.plugins[0].source' "$MKT")"
+# a same-repo source must resolve to a real plugin.json
+[ -f "$ROOT/$(jq -r '.plugins[0].source' "$MKT")/.claude-plugin/plugin.json" ] \
+  && ok "marketplace source resolves to a plugin.json" || bad "marketplace source resolves to a plugin.json"
 
 bash "$OCEAN" version | grep -q "boil-the-ocean v$sem" && ok "ocean version prints the version" || bad "ocean version prints the version"
 ln -sf "$OCEAN" "$TMP/bin/ocean-link"

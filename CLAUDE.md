@@ -7,14 +7,20 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Current state (2026-07-13)
 
-- v1.1.0 ready on branch `claude/optimistic-dijkstra-ca3530`: installation overhaul
-  modeled on gstack's setup machinery (github.com/garrytan/gstack) — curl-pipe
-  bootstrap install, `install.sh auto` agent detection, `VERSION` +
-  `ocean version --check` (HEAD-SHA-pinned raw fetch, offline-safe, bash-3.2 semver
-  compare since BSD sort lacks -V), `ocean upgrade` (ff-only pull + replay of
-  recorded install targets), doctor PATH/update checks. 82/82 tests (28 new: fake-HOME
-  installer round-trip, mocked-git bootstrap/upgrade, file:// update-check matrix).
-  Deliberately NOT adopted from gstack: telemetry, snooze machinery, team mode.
+- v1.2.0 staged on branch `claude/optimistic-dijkstra-ca3530` (not yet merged): one-click
+  plugin install. Added `.claude-plugin/marketplace.json` so the repo is its own
+  one-plugin marketplace — `/plugin marketplace add rajkaria/boil-the-ocean` +
+  `/plugin install boil-the-ocean@boil-the-ocean` from inside Claude Code, no shell/clone;
+  same manifest installs on Antigravity / Factory Droid / Copilot CLI. Plugin entry carries
+  no version (inherits from plugin.json), so release checklist stays VERSION + plugin.json.
+  86/86 tests (4 new: marketplace.json validity + name/source resolution). Docs: README
+  Install §, docs/agents/CLAUDE-CODE.md § Plugin mode, CHANGELOG.
+- v1.1.0 shipped to prod (commit `418fcb5` on main, tag + GitHub release published):
+  installation overhaul modeled on gstack (github.com/garrytan/gstack) — curl-pipe
+  bootstrap, `install.sh auto` agent detection, `VERSION` + `ocean version --check`
+  (HEAD-SHA-pinned raw fetch, offline-safe, bash-3.2 semver compare since BSD sort lacks
+  -V), `ocean upgrade` (ff-only pull + replay of recorded install targets), doctor
+  PATH/update checks. Deliberately NOT adopted from gstack: telemetry, snooze, team mode.
 - v1.0.0 shipped: https://github.com/rajkaria/boil-the-ocean — tag + GitHub release
   published, CI green on macOS + Ubuntu.
 - Installed on this machine: `ocean` / `ocean-daemon` at `~/.local/bin` (symlinks to
@@ -36,8 +42,11 @@ see CONTRIBUTING.md rule 4). Tests: `bash tests/test-ocean.sh` (offline, zero to
 
 ## Next steps
 
-1. Dogfood a real run: `examples/todo-api-spec.md` in a scratch repo, `OCEAN_AGENT=claude`.
-2. burn-rate README cross-link section (spend-less / spend-to-finish siblings).
-3. Claude Code plugin marketplace listing.
-4. First-class adapters for aider / opencode / cursor-agent (recipe: docs/agents/CUSTOM.md § adding a first-class adapter).
-5. Windows/PowerShell support (open contribution).
+1. Merge v1.2.0 to main + tag (release checklist in CONTRIBUTING.md); the marketplace
+   only works once `.claude-plugin/marketplace.json` is on the default branch.
+2. Dogfood a real run: `examples/todo-api-spec.md` in a scratch repo, `OCEAN_AGENT=claude`.
+3. burn-rate README cross-link section (spend-less / spend-to-finish siblings).
+4. Submit to central plugin registries (Anthropic official marketplace, Cursor, Codex) so
+   `/add-plugin` / search flows work without adding the repo by URL first.
+5. First-class adapters for aider / opencode / cursor-agent (recipe: docs/agents/CUSTOM.md § adding a first-class adapter).
+6. Windows/PowerShell support (open contribution).

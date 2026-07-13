@@ -3,6 +3,29 @@
 All notable changes to boil-the-ocean are documented here. Format:
 [Keep a Changelog](https://keepachangelog.com); versioning: [SemVer](https://semver.org).
 
+## [1.2.0] — 2026-07-13
+
+One-click plugin install — no shell, no clone.
+
+### Added
+
+- **`.claude-plugin/marketplace.json`**: the repo is now its own one-plugin
+  marketplace. From inside Claude Code, `/plugin marketplace add rajkaria/boil-the-ocean`
+  then `/plugin install boil-the-ocean@boil-the-ocean` wires the skill, the `/ocean*`
+  commands, and both hooks — updated in place on re-install, no `install.sh` needed.
+- **Cross-agent plugin install**: the same manifest installs on every agent that speaks
+  the Claude Code plugin-marketplace protocol — Antigravity (`agy plugin install <url>`),
+  Factory Droid, GitHub Copilot CLI. Documented in the README and
+  `docs/agents/CLAUDE-CODE.md`.
+- **Marketplace test coverage** (4 new tests, 86 total): `marketplace.json` is valid
+  JSON, its name and plugin entry match the plugin, and its `source: "./"` resolves to a
+  real `plugin.json`.
+
+### Notes
+
+- The plugin carries no separate version — its entry inherits from `plugin.json`, so the
+  release checklist stays VERSION + plugin.json in lockstep.
+
 ## [1.1.0] — 2026-07-13
 
 Installation overhaul — one-liner install, agent auto-detection, self-upgrade.
