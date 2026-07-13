@@ -1,0 +1,4 @@
+# never commit a real run's state into THIS repo (runs live in target projects,
+# where committing .ocean/ is encouraged)
+.ocean/
+.DS_Store

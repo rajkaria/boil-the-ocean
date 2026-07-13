@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run test suite (offline, mock agent)
+        run: bash tests/test-ocean.sh
+      - name: Shell syntax sweep
+        run: |
+          for f in scripts/*.sh install.sh uninstall.sh tests/*.sh; do
+            bash -n "$f"
+          done
